@@ -5,14 +5,10 @@ from osgeo import gdal_array
 from datetime import datetime
 from os import path
 from skimage import io
-
 import torch
 import utils
-
 from torchvision import models
 from model import MSMT
-
-
 from utils import *
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
