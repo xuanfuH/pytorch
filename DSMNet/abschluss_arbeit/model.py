@@ -167,7 +167,12 @@ class MSMT(nn.Module):
 
         # downstream task
         # dfc sem----out-channel=20
-        self.downstream_head = nn.Sequential(nn.ConvTranspose2d(tch, tch, 3, 2, 1, 1),
+        self.downstream_head_rgb = nn.Sequential(nn.ConvTranspose2d(tch, tch, 3, 2, 1, 1),
+                                             nn.ReLU(inplace=False),
+                                             nn.ConvTranspose2d(tch, tch//2, 3, 2, 1, 1),
+                                             nn.ReLU(inplace=False),
+                                             nn.Conv2d(tch//2, 21, 3, stride=1, padding='same'))
+        self.downstream_head_hsi = nn.Sequential(nn.ConvTranspose2d(tch, tch, 3, 2, 1, 1),
                                              nn.ReLU(inplace=False),
                                              nn.ConvTranspose2d(tch, tch//2, 3, 2, 1, 1),
                                              nn.ReLU(inplace=False),
@@ -199,10 +204,11 @@ class MSMT(nn.Module):
         transfer_gen_hsi = self.genHSI(rgb_after_share_c, hsi_atte)
 
         # downstream-task
-        down_out = self.downstream_head(rgb_after_share_c)
+        down_out_rgb = self.downstream_head_rgb(rgb_after_share_c)
+        down_out_hsi = self.downstream_head_hsi(hsi_after_share_c)
 
         # todo: try content not shared or shared
-        return row_rgb, row_hsi, rgb_content, hsi_content, gen_rgb, gen_hsi, transfer_gen_rgb, transfer_gen_hsi, down_out
+        return row_rgb, row_hsi, rgb_content, hsi_content, gen_rgb, gen_hsi, transfer_gen_rgb, transfer_gen_hsi, down_out_rgb, down_out_hsi
 
     def get_z_random(self, batchsize, nz, random_type='gauss'):
         z = torch.randn(batchsize, nz).to(self.device)

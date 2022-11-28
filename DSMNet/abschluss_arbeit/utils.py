@@ -135,3 +135,82 @@ def sliding_window(image, step, window_size):
       if y + window_size[1] >= height:
         y = height - window_size[1]
       yield x, x + window_size[0], y, y + window_size[1]
+
+
+colormap = [[0,0,0],[128,0,0],[0,128,0], [128,128,0], [0,0,128],
+            [128,0,128],[0,128,128],[128,128,128],[64,0,0],[192,0,0],
+            [64,128,0],[192,128,0],[64,0,128],[192,0,128],
+            [64,128,128],[192,128,128],[0,64,0],[128,64,0],
+            [0,192,0],[128,192,0],[0,64,128]]
+# 0 – Unclassified
+# 1 – Healthy grass
+# 2 – Stressed grass
+# 3 – Artificial turf
+# 4 – Evergreen trees
+# 5 – Deciduous trees
+# 6 – Bare earth
+# 7 – Water
+# 8 – Residential buildings
+# 9 – Non-residential buildings
+# 10 – Roads
+# 11 – Sidewalks
+# 12 – Crosswalks
+# 13 – Major thoroughfares
+# 14 – Highways
+# 15 – Railways
+# 16 – Paved parking lots
+# 17 – Unpaved parking lots
+# 18 – Cars
+# 19 – Trains
+# 20 – Stadium seats
+def label2img(label):
+    h, w = label.shape
+    out = (np.ones((h, w, 3)) * 255).astype(np.uint8)
+    for class_num, rgb_val in enumerate(colormap):
+        out[np.where(label == class_num)] = rgb_val
+    return out
+
+
+class Evaluator(object):
+    def __init__(self, num_class):
+        self.num_class = num_class
+        self.confusion_matrix = np.zeros((self.num_class,)*2)
+
+    def Pixel_Accuracy(self):
+        Acc = np.diag(self.confusion_matrix).sum() / self.confusion_matrix.sum()
+        return Acc
+
+    def Pixel_Accuracy_Class(self):
+        Acc = np.diag(self.confusion_matrix) / self.confusion_matrix.sum(axis=1)
+        Acc = np.nanmean(Acc)
+        return Acc
+
+    def Mean_Intersection_over_Union(self):
+        MIoU = np.diag(self.confusion_matrix) / (
+                    np.sum(self.confusion_matrix, axis=1) + np.sum(self.confusion_matrix, axis=0) -
+                    np.diag(self.confusion_matrix))
+        MIoU = np.nanmean(MIoU)
+        return MIoU
+
+    def Frequency_Weighted_Intersection_over_Union(self):
+        freq = np.sum(self.confusion_matrix, axis=1) / np.sum(self.confusion_matrix)
+        iu = np.diag(self.confusion_matrix) / (
+                    np.sum(self.confusion_matrix, axis=1) + np.sum(self.confusion_matrix, axis=0) -
+                    np.diag(self.confusion_matrix))
+
+        FWIoU = (freq[freq > 0] * iu[freq > 0]).sum()
+        return FWIoU
+
+    def _generate_matrix(self, gt_image, pre_image):
+        mask = (gt_image >= 0) & (gt_image < self.num_class)
+        label = self.num_class * gt_image[mask].astype('int') + pre_image[mask]
+        count = np.bincount(label, minlength=self.num_class**2)
+        confusion_matrix = count.reshape(self.num_class, self.num_class)
+        return confusion_matrix
+
+    def add_batch(self, gt_image, pre_image):
+        assert gt_image.shape == pre_image.shape
+        self.confusion_matrix += self._generate_matrix(gt_image, pre_image)
+
+    def reset(self):
+        self.confusion_matrix = np.zeros((self.num_class,) * 2)
